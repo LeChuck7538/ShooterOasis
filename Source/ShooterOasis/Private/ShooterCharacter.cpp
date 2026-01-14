@@ -5,6 +5,7 @@
 
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
@@ -19,7 +20,22 @@ AShooterCharacter::AShooterCharacter()
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->TargetArmLength = 400.0f;
+	CameraBoom->bUsePawnControlRotation = true;    // The springArm rotates based on the players input.
+	
+	PlayerCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("PlayerCamera"));
+	PlayerCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	PlayerCamera->bUsePawnControlRotation = false;	// The Camera does not follow the player controller
+	
+	bUseControllerRotationYaw = false;			// Determines if the character rotates with the camera or not.
+	bUseControllerRotationPitch = true;
+	bUseControllerRotationRoll = false;
+	
+	GetCharacterMovement()->bOrientRotationToMovement = true;  // Character faces the direction of it currently moving in.
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 540.f, 0.f);
+	GetCharacterMovement()->JumpZVelocity = 500.f;
+	GetCharacterMovement()->AirControl = 0.2f;
 }
+
 
 // Called when the game starts or when spawned
 void AShooterCharacter::BeginPlay()
@@ -51,6 +67,9 @@ void AShooterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AShooterCharacter::Move);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AShooterCharacter::Look);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AShooterCharacter::Jump);
+		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AShooterCharacter::StopJumping);
 	}
 }
 
@@ -72,4 +91,13 @@ void AShooterCharacter::Move(const FInputActionValue& Value)
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
+}
+
+
+void AShooterCharacter::Look(const FInputActionValue& Value)
+{
+	FVector2D LookDirectionVector = Value.Get<FVector2D>();
+	
+	AddControllerYawInput(LookDirectionVector.X * 1.f);
+	AddControllerPitchInput(LookDirectionVector.Y * 1.f);
 }
